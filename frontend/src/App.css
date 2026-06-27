@@ -1,0 +1,148 @@
+body{
+  margin:0;
+  background:#050816;
+  font-family:Arial;
+  color:white;
+}
+
+.container{
+  padding:30px;
+}
+
+.topCards{
+  display:flex;
+  gap:20px;
+}
+
+.topCard{
+  flex:1;
+  background:#0f172a;
+  padding:30px;
+  border-radius:25px;
+  text-align:center;
+}
+
+.topCard h1{
+  font-size:70px;
+  margin:0;
+}
+
+.topCard p{
+  color:#d1d5db;
+  font-size:20px;
+}
+
+.dashboard{
+  margin-top:30px;
+  display:flex;
+  gap:20px;
+}
+
+.left{
+  flex:2;
+  background:#0f172a;
+  padding:30px;
+  border-radius:25px;
+}
+
+.right{
+  flex:1;
+  background:#0f172a;
+  padding:30px;
+  border-radius:25px;
+}
+
+.left h1{
+  font-size:60px;
+}
+
+input{
+  width:100%;
+  padding:20px;
+  border:none;
+  border-radius:20px;
+  background:#1e3a8a;
+  color:white;
+  font-size:40px;
+  margin-top:20px;
+}
+
+.quickButtons{
+  display:flex;
+  gap:15px;
+  margin-top:20px;
+}
+
+.quickButtons button{
+  background:#1e3a8a;
+  border:none;
+  padding:15px 20px;
+  border-radius:15px;
+  color:white;
+  font-size:22px;
+  cursor:pointer;
+}
+
+.actionButtons{
+  display:flex;
+  gap:20px;
+  margin-top:30px;
+}
+
+.stakeBtn{
+  flex:1;
+  background:linear-gradient(
+    to right,
+    #9333ea,
+    #d946ef
+  );
+  border:none;
+  padding:25px;
+  border-radius:20px;
+  color:white;
+  font-size:40px;
+  cursor:pointer;
+  font-weight:bold;
+}
+
+.withdrawBtn{
+  flex:1;
+  background:#ff2d2d;
+  border:none;
+  padding:25px;
+  border-radius:20px;
+  color:white;
+  font-size:40px;
+  cursor:pointer;
+  font-weight:bold;
+}
+
+.claimBtn{
+  width:100%;
+  margin-top:20px;
+  background:#16a34a;
+  border:none;
+  padding:25px;
+  border-radius:20px;
+  color:white;
+  font-size:40px;
+  cursor:pointer;
+  font-weight:bold;
+}
+
+.address{
+  background:#1e3a8a;
+  padding:15px;
+  border-radius:15px;
+  margin-top:20px;
+  word-break:break-all;
+}
+
+.stats{
+  margin-top:30px;
+  font-size:25px;
+}
+
+button:hover{
+  opacity:0.9;
+}
