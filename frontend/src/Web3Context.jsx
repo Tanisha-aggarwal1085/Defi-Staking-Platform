@@ -2,7 +2,7 @@ import { createContext, useContext, useEffect, useState } from "react";
 import { ethers } from "ethers";
 
 const CONTRACT_ADDRESS =
-    "0xCf7Ed3AccA5a467e9e704C703E8D87F634fB0Fc9";
+    "0x0179609c66b29A1933a530EefB2453ceAC785770";
 
 const ABI = [
     "function stake() payable",
