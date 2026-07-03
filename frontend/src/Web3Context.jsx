@@ -4,6 +4,8 @@ import { ethers } from "ethers";
 const CONTRACT_ADDRESS =
     "0x0179609c66b29A1933a530EefB2453ceAC785770";
 
+const SEPOLIA_CHAIN_ID = 11155111n;
+
 const ABI = [
     "function stake() payable",
     "function withdraw(uint256 amount)",
@@ -16,6 +18,24 @@ const Web3Context = createContext(null);
 
 export function useWeb3() {
     return useContext(Web3Context);
+}
+
+// -------------------------------------------------------
+// Helper: check user is on Sepolia before any tx
+// -------------------------------------------------------
+async function assertSepolia() {
+    const provider = new ethers.BrowserProvider(window.ethereum);
+    const network = await provider.getNetwork();
+    if (network.chainId !== SEPOLIA_CHAIN_ID) {
+        alert(
+            "Wrong Network!\n\n" +
+            "This app runs on Ethereum Sepolia Testnet only.\n\n" +
+            "Please switch MetaMask to 'Sepolia' and try again.\n" +
+            "(MetaMask → Network dropdown → Sepolia)"
+        );
+        return false;
+    }
+    return true;
 }
 
 export function Web3Provider({ children }) {
@@ -37,15 +57,22 @@ export function Web3Provider({ children }) {
         return new ethers.Contract(CONTRACT_ADDRESS, ABI, signer);
     };
 
+    // -------------------------------------------------------
+    // CONNECT WALLET
+    // -------------------------------------------------------
     const connectWallet = async () => {
         try {
             if (!window.ethereum) {
-                alert("Install MetaMask");
+                alert("MetaMask not found. Please install MetaMask and try again.");
                 return;
             }
 
-            const provider = new ethers.BrowserProvider(window.ethereum);
+            const ok = await assertSepolia();
+            if (!ok) return;
+
             await window.ethereum.request({ method: "eth_requestAccounts" });
+
+            const provider = new ethers.BrowserProvider(window.ethereum);
             const signer = await provider.getSigner();
             const walletAddress = await signer.getAddress();
 
@@ -67,6 +94,9 @@ export function Web3Provider({ children }) {
         }
     };
 
+    // -------------------------------------------------------
+    // STAKE
+    // -------------------------------------------------------
     const handleStake = async () => {
         try {
             if (!window.ethereum) {
@@ -77,6 +107,9 @@ export function Web3Provider({ children }) {
                 alert("Connect Wallet First");
                 return;
             }
+
+            const ok = await assertSepolia();
+            if (!ok) return;
 
             setStakeLoading(true);
 
@@ -106,12 +139,18 @@ export function Web3Provider({ children }) {
         }
     };
 
+    // -------------------------------------------------------
+    // WITHDRAW
+    // -------------------------------------------------------
     const handleWithdraw = async () => {
         try {
             if (!account) {
                 alert("Connect Wallet First");
                 return;
             }
+
+            const ok = await assertSepolia();
+            if (!ok) return;
 
             setWithdrawLoading(true);
 
@@ -139,12 +178,18 @@ export function Web3Provider({ children }) {
         }
     };
 
+    // -------------------------------------------------------
+    // CLAIM REWARD
+    // -------------------------------------------------------
     const handleClaim = async () => {
         try {
             if (!account) {
                 alert("Connect Wallet First");
                 return;
             }
+
+            const ok = await assertSepolia();
+            if (!ok) return;
 
             setClaimLoading(true);
 
@@ -170,9 +215,15 @@ export function Web3Provider({ children }) {
         }
     };
 
+    // -------------------------------------------------------
+    // LISTEN FOR ACCOUNT / NETWORK CHANGES
+    // -------------------------------------------------------
     useEffect(() => {
         if (window.ethereum) {
             window.ethereum.on("accountsChanged", () => {
+                window.location.reload();
+            });
+            window.ethereum.on("chainChanged", () => {
                 window.location.reload();
             });
         }
