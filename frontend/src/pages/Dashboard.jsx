@@ -41,7 +41,7 @@ function Dashboard() {
                         borderRadius: "20px",
                         marginBottom: "14px"
                     }}>
-                        Live on Sepolia Testnet
+                        Live on SCAI Mainnet
                     </span>
                     <h1 style={{ fontSize: "32px", margin: 0 }}>
                         Stake ETH. Earn Rewards. Stay in Control.
@@ -153,7 +153,7 @@ function Dashboard() {
                         <div className="walletAddress">
                             {account ? account : "Not Connected"}
                         </div>
-                        <h3 className="network">Sepolia Testnet</h3>
+                        <h3 className="network">SCAI Mainnet</h3>
                     </div>
 
                     {/* STAKE CARD */}

@@ -6,7 +6,7 @@ import Dashboard from "./pages/Dashboard";
 import MyStakes from "./pages/MyStakes";
 import Transactions from "./pages/Transactions";
 import About from "./pages/About";
-const CONTRACT_ADDRESS = "0x0179609c66b29A1933a530EefB2453ceAC785770";
+const CONTRACT_ADDRESS = "0xCd279499974Ac556a7DA538e5F1f1B501E46c14c";
 
 function Navbar() {
 

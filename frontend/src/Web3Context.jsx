@@ -2,9 +2,9 @@ import { createContext, useContext, useEffect, useState } from "react";
 import { ethers } from "ethers";
 
 const CONTRACT_ADDRESS =
-    "0x0179609c66b29A1933a530EefB2453ceAC785770";
+    "0xCd279499974Ac556a7DA538e5F1f1B501E46c14c";
 
-const SEPOLIA_CHAIN_ID = 11155111n;
+const SEPOLIA_CHAIN_ID = 34n;
 
 const ABI = [
     "function stake() payable",
@@ -29,7 +29,7 @@ async function assertSepolia() {
     if (network.chainId !== SEPOLIA_CHAIN_ID) {
         alert(
             "Wrong Network!\n\n" +
-            "This app runs on Ethereum Sepolia Testnet only.\n\n" +
+            "This app runs on Ethereum SCAI Mainnet only.\n\n" +
             "Please switch MetaMask to 'Sepolia' and try again.\n" +
             "(MetaMask → Network dropdown → Sepolia)"
         );
