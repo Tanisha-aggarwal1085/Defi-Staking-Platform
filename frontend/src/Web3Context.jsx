@@ -4,14 +4,17 @@ import { ethers } from "ethers";
 const CONTRACT_ADDRESS =
     "0xCd279499974Ac556a7DA538e5F1f1B501E46c14c";
 
-const SEPOLIA_CHAIN_ID = 34n;
+const SCAI_CHAIN_ID = 34n;
 
 const ABI = [
     "function stake() payable",
     "function withdraw(uint256 amount)",
     "function claimReward()",
     "function getStake(address user) view returns(uint256)",
-    "function getReward(address user) view returns(uint256)"
+    "function getReward(address user) view returns(uint256)",
+    "event Staked(address indexed user, uint256 amount, uint256 newTotal)",
+    "event Withdrawn(address indexed user, uint256 amount, uint256 newTotal)",
+    "event RewardClaimed(address indexed user, uint256 amount)"
 ];
 
 const Web3Context = createContext(null);
@@ -20,18 +23,15 @@ export function useWeb3() {
     return useContext(Web3Context);
 }
 
-// -------------------------------------------------------
-// Helper: check user is on Sepolia before any tx
-// -------------------------------------------------------
-async function assertSepolia() {
+async function assertSCAI() {
     const provider = new ethers.BrowserProvider(window.ethereum);
     const network = await provider.getNetwork();
-    if (network.chainId !== SEPOLIA_CHAIN_ID) {
+    if (network.chainId !== SCAI_CHAIN_ID) {
         alert(
             "Wrong Network!\n\n" +
-            "This app runs on Ethereum SCAI Mainnet only.\n\n" +
-            "Please switch MetaMask to 'Sepolia' and try again.\n" +
-            "(MetaMask → Network dropdown → Sepolia)"
+            "This app runs on SCAI Mainnet only.\n\n" +
+            "Please switch MetaMask to 'SCAI Mainnet' and try again.\n" +
+            "Chain ID: 34 | RPC: https://mainnet-rpc.scai.network"
         );
         return false;
     }
@@ -57,17 +57,59 @@ export function Web3Provider({ children }) {
         return new ethers.Contract(CONTRACT_ADDRESS, ABI, signer);
     };
 
-    // -------------------------------------------------------
+    // Fetch past events from blockchain
+    const fetchEvents = async (userAddress) => {
+        try {
+            const provider = new ethers.BrowserProvider(window.ethereum);
+            const contract = new ethers.Contract(CONTRACT_ADDRESS, ABI, provider);
+
+            const stakedFilter = contract.filters.Staked(userAddress);
+            const withdrawnFilter = contract.filters.Withdrawn(userAddress);
+            const claimedFilter = contract.filters.RewardClaimed(userAddress);
+
+            const [stakedEvents, withdrawnEvents, claimedEvents] = await Promise.all([
+                contract.queryFilter(stakedFilter),
+                contract.queryFilter(withdrawnFilter),
+                contract.queryFilter(claimedFilter)
+            ]);
+
+            const allEvents = [
+                ...stakedEvents.map(e => ({
+                    type: "Staked",
+                    label: `Staked ${ethers.formatEther(e.args.amount)} SCAI`,
+                    block: e.blockNumber
+                })),
+                ...withdrawnEvents.map(e => ({
+                    type: "Withdrawn",
+                    label: `Withdraw ${ethers.formatEther(e.args.amount)} SCAI`,
+                    block: e.blockNumber
+                })),
+                ...claimedEvents.map(e => ({
+                    type: "Claimed",
+                    label: `Reward Claimed ${ethers.formatEther(e.args.amount)} SCAI`,
+                    block: e.blockNumber
+                }))
+            ];
+
+            // Sort by block number (latest first)
+            allEvents.sort((a, b) => b.block - a.block);
+
+            setHistory(allEvents.map(e => e.label));
+
+        } catch (err) {
+            console.log("Event fetch error:", err);
+        }
+    };
+
     // CONNECT WALLET
-    // -------------------------------------------------------
     const connectWallet = async () => {
         try {
             if (!window.ethereum) {
-                alert("MetaMask not found. Please install MetaMask and try again.");
+                alert("MetaMask not found. Please install MetaMask.");
                 return;
             }
 
-            const ok = await assertSepolia();
+            const ok = await assertSCAI();
             if (!ok) return;
 
             await window.ethereum.request({ method: "eth_requestAccounts" });
@@ -86,6 +128,9 @@ export function Web3Provider({ children }) {
             setStakeAmount(parseFloat(ethers.formatEther(stake)).toFixed(4));
             setRewardAmount(parseFloat(ethers.formatEther(reward)).toFixed(4));
 
+            // Fetch blockchain events
+            await fetchEvents(walletAddress);
+
             alert("Wallet Connected");
 
         } catch (err) {
@@ -94,9 +139,7 @@ export function Web3Provider({ children }) {
         }
     };
 
-    // -------------------------------------------------------
     // STAKE
-    // -------------------------------------------------------
     const handleStake = async () => {
         try {
             if (!window.ethereum) {
@@ -108,7 +151,7 @@ export function Web3Provider({ children }) {
                 return;
             }
 
-            const ok = await assertSepolia();
+            const ok = await assertSCAI();
             if (!ok) return;
 
             setStakeLoading(true);
@@ -127,7 +170,8 @@ export function Web3Provider({ children }) {
             setStakeAmount(parseFloat(ethers.formatEther(updatedStake)).toFixed(4));
             setRewardAmount(parseFloat(ethers.formatEther(updatedReward)).toFixed(4));
 
-            setHistory(prev => [`Staked ${amount} ETH`, ...prev]);
+            // Refresh events from blockchain
+            await fetchEvents(account);
 
             alert("Stake Successful");
 
@@ -139,9 +183,7 @@ export function Web3Provider({ children }) {
         }
     };
 
-    // -------------------------------------------------------
     // WITHDRAW
-    // -------------------------------------------------------
     const handleWithdraw = async () => {
         try {
             if (!account) {
@@ -149,7 +191,7 @@ export function Web3Provider({ children }) {
                 return;
             }
 
-            const ok = await assertSepolia();
+            const ok = await assertSCAI();
             if (!ok) return;
 
             setWithdrawLoading(true);
@@ -166,7 +208,8 @@ export function Web3Provider({ children }) {
             setStakeAmount(parseFloat(ethers.formatEther(updatedStake)).toFixed(4));
             setRewardAmount(parseFloat(ethers.formatEther(updatedReward)).toFixed(4));
 
-            setHistory(prev => [`Withdraw ${amount} ETH`, ...prev]);
+            // Refresh events from blockchain
+            await fetchEvents(account);
 
             alert("Withdraw Successful");
 
@@ -178,9 +221,7 @@ export function Web3Provider({ children }) {
         }
     };
 
-    // -------------------------------------------------------
     // CLAIM REWARD
-    // -------------------------------------------------------
     const handleClaim = async () => {
         try {
             if (!account) {
@@ -188,7 +229,7 @@ export function Web3Provider({ children }) {
                 return;
             }
 
-            const ok = await assertSepolia();
+            const ok = await assertSCAI();
             if (!ok) return;
 
             setClaimLoading(true);
@@ -203,7 +244,8 @@ export function Web3Provider({ children }) {
 
             setRewardAmount(parseFloat(ethers.formatEther(updatedReward)).toFixed(4));
 
-            setHistory(prev => ["Reward Claimed", ...prev]);
+            // Refresh events from blockchain
+            await fetchEvents(account);
 
             alert("Reward Claimed");
 
@@ -215,9 +257,6 @@ export function Web3Provider({ children }) {
         }
     };
 
-    // -------------------------------------------------------
-    // LISTEN FOR ACCOUNT / NETWORK CHANGES
-    // -------------------------------------------------------
     useEffect(() => {
         if (window.ethereum) {
             window.ethereum.on("accountsChanged", () => {
