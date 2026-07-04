@@ -23,19 +23,60 @@ export function useWeb3() {
     return useContext(Web3Context);
 }
 
+// Auto-switch to SCAI Mainnet if wrong network
 async function assertSCAI() {
-    const provider = new ethers.BrowserProvider(window.ethereum);
-    const network = await provider.getNetwork();
-    if (network.chainId !== SCAI_CHAIN_ID) {
-        alert(
-            "Wrong Network!\n\n" +
-            "This app runs on SCAI Mainnet only.\n\n" +
-            "Please switch MetaMask to 'SCAI Mainnet' and try again.\n" +
-            "Chain ID: 34 | RPC: https://mainnet-rpc.scai.network"
-        );
-        return false;
+    try {
+        const provider = new ethers.BrowserProvider(window.ethereum);
+        const network = await provider.getNetwork();
+        console.log("Current chainId:", network.chainId.toString());
+
+        if (network.chainId !== SCAI_CHAIN_ID) {
+            try {
+                // Try to switch automatically
+                await window.ethereum.request({
+                    method: "wallet_switchEthereumChain",
+                    params: [{ chainId: "0x22" }], // 34 in hex
+                });
+                return true;
+            } catch (switchError) {
+                // If network not added, ask user to add it
+                if (switchError.code === 4902) {
+                    try {
+                        await window.ethereum.request({
+                            method: "wallet_addEthereumChain",
+                            params: [{
+                                chainId: "0x22",
+                                chainName: "SCAI Mainnet",
+                                nativeCurrency: {
+                                    name: "SCAI",
+                                    symbol: "SCAI",
+                                    decimals: 18
+                                },
+                                rpcUrls: ["https://mainnet-rpc.scai.network"],
+                                blockExplorerUrls: ["https://explorer.securechain.ai"]
+                            }]
+                        });
+                        return true;
+                    } catch (addError) {
+                        alert("Please add SCAI Mainnet manually:\nRPC: https://mainnet-rpc.scai.network\nChain ID: 34");
+                        return false;
+                    }
+                }
+                alert(
+                    "Wrong Network!\n\n" +
+                    "This app runs on SCAI Mainnet only.\n\n" +
+                    "Please switch MetaMask to 'SCAI Mainnet' and try again.\n" +
+                    "Chain ID: 34 | RPC: https://mainnet-rpc.scai.network"
+                );
+                return false;
+            }
+        }
+        return true;
+    } catch (err) {
+        console.log("Network check error:", err);
+        // Allow connection if network check itself fails (RPC issue)
+        return true;
     }
-    return true;
 }
 
 export function Web3Provider({ children }) {
@@ -75,17 +116,14 @@ export function Web3Provider({ children }) {
 
             const allEvents = [
                 ...stakedEvents.map(e => ({
-                    type: "Staked",
                     label: `Staked ${ethers.formatEther(e.args.amount)} SCAI`,
                     block: e.blockNumber
                 })),
                 ...withdrawnEvents.map(e => ({
-                    type: "Withdrawn",
                     label: `Withdraw ${ethers.formatEther(e.args.amount)} SCAI`,
                     block: e.blockNumber
                 })),
                 ...claimedEvents.map(e => ({
-                    type: "Claimed",
                     label: `Reward Claimed ${ethers.formatEther(e.args.amount)} SCAI`,
                     block: e.blockNumber
                 }))
@@ -93,7 +131,6 @@ export function Web3Provider({ children }) {
 
             // Sort by block number (latest first)
             allEvents.sort((a, b) => b.block - a.block);
-
             setHistory(allEvents.map(e => e.label));
 
         } catch (err) {
@@ -170,7 +207,6 @@ export function Web3Provider({ children }) {
             setStakeAmount(parseFloat(ethers.formatEther(updatedStake)).toFixed(4));
             setRewardAmount(parseFloat(ethers.formatEther(updatedReward)).toFixed(4));
 
-            // Refresh events from blockchain
             await fetchEvents(account);
 
             alert("Stake Successful");
@@ -208,7 +244,6 @@ export function Web3Provider({ children }) {
             setStakeAmount(parseFloat(ethers.formatEther(updatedStake)).toFixed(4));
             setRewardAmount(parseFloat(ethers.formatEther(updatedReward)).toFixed(4));
 
-            // Refresh events from blockchain
             await fetchEvents(account);
 
             alert("Withdraw Successful");
@@ -244,7 +279,6 @@ export function Web3Provider({ children }) {
 
             setRewardAmount(parseFloat(ethers.formatEther(updatedReward)).toFixed(4));
 
-            // Refresh events from blockchain
             await fetchEvents(account);
 
             alert("Reward Claimed");
