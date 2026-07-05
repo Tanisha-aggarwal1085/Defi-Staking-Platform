@@ -6,11 +6,11 @@ async function main() {
 
   const staking = await Staking.deploy();
 
-  await staking.deployed();
+  await staking.waitForDeployment();
 
   console.log(
     "Contract deployed to:",
-    staking.address
+    staking.target
   );
 }
 

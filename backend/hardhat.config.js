@@ -1,5 +1,20 @@
-require("@nomicfoundation/hardhat-toolbox");
+require("@nomicfoundation/hardhat-ethers");
+require("dotenv").config();
 
 module.exports = {
-    solidity: "0.8.20",
+  solidity: "0.8.20",
+  networks: {
+    localhost: {
+      url: "http://127.0.0.1:8545"
+    },
+    sepolia: {
+      url: process.env.SEPOLIA_RPC_URL,
+      accounts: [process.env.PRIVATE_KEY]
+    },
+    scai: {
+      url: "https://mainnet-rpc.scai.network",
+      accounts: [process.env.PRIVATE_KEY],
+      chainId: 34
+    }
+  }
 };
