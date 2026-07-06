@@ -32,14 +32,12 @@ async function assertSCAI() {
 
         if (network.chainId !== SCAI_CHAIN_ID) {
             try {
-                // Try to switch automatically
                 await window.ethereum.request({
                     method: "wallet_switchEthereumChain",
-                    params: [{ chainId: "0x22" }], // 34 in hex
+                    params: [{ chainId: "0x22" }],
                 });
                 return true;
             } catch (switchError) {
-                // If network not added, ask user to add it
                 if (switchError.code === 4902) {
                     try {
                         await window.ethereum.request({
@@ -74,7 +72,6 @@ async function assertSCAI() {
         return true;
     } catch (err) {
         console.log("Network check error:", err);
-        // Allow connection if network check itself fails (RPC issue)
         return true;
     }
 }
@@ -137,202 +134,206 @@ export function Web3Provider({ children }) {
 
         } catch (err) {
             console.log("Event fetch skipped:", err.message);
-            // Keep existing in-memory history if events not available
         }
     };
 
-    // Sort by block number (latest first)
-    allEvents.sort((a, b) => b.block - a.block);
-    setHistory(allEvents.map(e => e.label));
+    // CONNECT WALLET
+    const connectWallet = async () => {
+        try {
+            if (!window.ethereum) {
+                alert("MetaMask not found. Please install MetaMask.");
+                return;
+            }
 
-} catch (err) {
-    console.log("Event fetch error:", err);
-}
+            const ok = await assertSCAI();
+            if (!ok) return;
+
+            await window.ethereum.request({ method: "eth_requestAccounts" });
+
+            const provider = new ethers.BrowserProvider(window.ethereum);
+            const signer = await provider.getSigner();
+            const walletAddress = await signer.getAddress();
+
+            const stakingContract = new ethers.Contract(CONTRACT_ADDRESS, ABI, signer);
+
+            setAccount(walletAddress);
+
+            const stake = await stakingContract.getStake(walletAddress);
+            const reward = await stakingContract.getReward(walletAddress);
+
+            setStakeAmount(parseFloat(ethers.formatEther(stake)).toFixed(4));
+            setRewardAmount(parseFloat(ethers.formatEther(reward)).toFixed(4));
+
+            await fetchEvents(walletAddress);
+
+            alert("Wallet Connected");
+
+        } catch (err) {
+            console.log(err);
+            alert("Wallet Connection Failed");
+        }
     };
 
-// CONNECT WALLET
-const connectWallet = async () => {
-    try {
-        if (!window.ethereum) {
-            alert("MetaMask not found. Please install MetaMask.");
-            return;
+    // STAKE
+    const handleStake = async () => {
+        try {
+            if (!window.ethereum) {
+                alert("Install MetaMask");
+                return;
+            }
+            if (!account) {
+                alert("Connect Wallet First");
+                return;
+            }
+
+            const ok = await assertSCAI();
+            if (!ok) return;
+
+            setStakeLoading(true);
+
+            const stakingContract = await getContract();
+
+            const tx = await stakingContract.stake({
+                value: ethers.parseEther(amount)
+            });
+
+            await tx.wait();
+
+            const updatedStake = await stakingContract.getStake(account);
+            const updatedReward = await stakingContract.getReward(account);
+
+            setStakeAmount(parseFloat(ethers.formatEther(updatedStake)).toFixed(4));
+            setRewardAmount(parseFloat(ethers.formatEther(updatedReward)).toFixed(4));
+
+            setHistory(prev => [
+                `Staked ${amount} SCAI`,
+                ...prev
+            ]);
+
+            await fetchEvents(account);
+
+            alert("Stake Successful");
+
+        } catch (err) {
+            console.log(err);
+            alert(err.reason || err.message || "Stake Failed");
+        } finally {
+            setStakeLoading(false);
         }
+    };
 
-        const ok = await assertSCAI();
-        if (!ok) return;
+    // WITHDRAW
+    const handleWithdraw = async () => {
+        try {
+            if (!account) {
+                alert("Connect Wallet First");
+                return;
+            }
 
-        await window.ethereum.request({ method: "eth_requestAccounts" });
+            const ok = await assertSCAI();
+            if (!ok) return;
 
-        const provider = new ethers.BrowserProvider(window.ethereum);
-        const signer = await provider.getSigner();
-        const walletAddress = await signer.getAddress();
+            setWithdrawLoading(true);
 
-        const stakingContract = new ethers.Contract(CONTRACT_ADDRESS, ABI, signer);
+            const stakingContract = await getContract();
 
-        setAccount(walletAddress);
+            const tx = await stakingContract.withdraw(ethers.parseEther(amount));
 
-        const stake = await stakingContract.getStake(walletAddress);
-        const reward = await stakingContract.getReward(walletAddress);
+            await tx.wait();
 
-        setStakeAmount(parseFloat(ethers.formatEther(stake)).toFixed(4));
-        setRewardAmount(parseFloat(ethers.formatEther(reward)).toFixed(4));
+            const updatedStake = await stakingContract.getStake(account);
+            const updatedReward = await stakingContract.getReward(account);
 
-        // Fetch blockchain events
-        await fetchEvents(walletAddress);
+            setStakeAmount(parseFloat(ethers.formatEther(updatedStake)).toFixed(4));
+            setRewardAmount(parseFloat(ethers.formatEther(updatedReward)).toFixed(4));
 
-        alert("Wallet Connected");
+            setHistory(prev => [
+                `Withdraw ${amount} SCAI`,
+                ...prev
+            ]);
 
-    } catch (err) {
-        console.log(err);
-        alert("Wallet Connection Failed");
-    }
-};
+            await fetchEvents(account);
 
-// STAKE
-const handleStake = async () => {
-    try {
-        if (!window.ethereum) {
-            alert("Install MetaMask");
-            return;
+            alert("Withdraw Successful");
+
+        } catch (err) {
+            console.log(err);
+            alert(err.reason || err.message || "Withdraw Failed");
+        } finally {
+            setWithdrawLoading(false);
         }
-        if (!account) {
-            alert("Connect Wallet First");
-            return;
+    };
+
+    // CLAIM REWARD
+    const handleClaim = async () => {
+        try {
+            if (!account) {
+                alert("Connect Wallet First");
+                return;
+            }
+
+            const ok = await assertSCAI();
+            if (!ok) return;
+
+            setClaimLoading(true);
+
+            const stakingContract = await getContract();
+
+            const tx = await stakingContract.claimReward();
+
+            await tx.wait();
+
+            const updatedReward = await stakingContract.getReward(account);
+
+            setRewardAmount(parseFloat(ethers.formatEther(updatedReward)).toFixed(4));
+
+            setHistory(prev => [
+                "Reward Claimed",
+                ...prev
+            ]);
+
+            await fetchEvents(account);
+
+            alert("Reward Claimed");
+
+        } catch (err) {
+            console.log(err);
+            alert(err.reason || err.message || "Claim Failed");
+        } finally {
+            setClaimLoading(false);
         }
+    };
 
-        const ok = await assertSCAI();
-        if (!ok) return;
-
-        setStakeLoading(true);
-
-        const stakingContract = await getContract();
-
-        const tx = await stakingContract.stake({
-            value: ethers.parseEther(amount)
-        });
-
-        await tx.wait();
-
-        const updatedStake = await stakingContract.getStake(account);
-        const updatedReward = await stakingContract.getReward(account);
-
-        setStakeAmount(parseFloat(ethers.formatEther(updatedStake)).toFixed(4));
-        setRewardAmount(parseFloat(ethers.formatEther(updatedReward)).toFixed(4));
-
-        await fetchEvents(account);
-
-        alert("Stake Successful");
-
-    } catch (err) {
-        console.log(err);
-        alert(err.reason || err.message || "Stake Failed");
-    } finally {
-        setStakeLoading(false);
-    }
-};
-
-// WITHDRAW
-const handleWithdraw = async () => {
-    try {
-        if (!account) {
-            alert("Connect Wallet First");
-            return;
+    useEffect(() => {
+        if (window.ethereum) {
+            window.ethereum.on("accountsChanged", () => {
+                window.location.reload();
+            });
+            window.ethereum.on("chainChanged", () => {
+                window.location.reload();
+            });
         }
+    }, []);
 
-        const ok = await assertSCAI();
-        if (!ok) return;
+    const value = {
+        account,
+        amount,
+        setAmount,
+        stakeAmount,
+        rewardAmount,
+        stakeLoading,
+        withdrawLoading,
+        claimLoading,
+        history,
+        connectWallet,
+        handleStake,
+        handleWithdraw,
+        handleClaim
+    };
 
-        setWithdrawLoading(true);
-
-        const stakingContract = await getContract();
-
-        const tx = await stakingContract.withdraw(ethers.parseEther(amount));
-
-        await tx.wait();
-
-        const updatedStake = await stakingContract.getStake(account);
-        const updatedReward = await stakingContract.getReward(account);
-
-        setStakeAmount(parseFloat(ethers.formatEther(updatedStake)).toFixed(4));
-        setRewardAmount(parseFloat(ethers.formatEther(updatedReward)).toFixed(4));
-
-        await fetchEvents(account);
-
-        alert("Withdraw Successful");
-
-    } catch (err) {
-        console.log(err);
-        alert(err.reason || err.message || "Withdraw Failed");
-    } finally {
-        setWithdrawLoading(false);
-    }
-};
-
-// CLAIM REWARD
-const handleClaim = async () => {
-    try {
-        if (!account) {
-            alert("Connect Wallet First");
-            return;
-        }
-
-        const ok = await assertSCAI();
-        if (!ok) return;
-
-        setClaimLoading(true);
-
-        const stakingContract = await getContract();
-
-        const tx = await stakingContract.claimReward();
-
-        await tx.wait();
-
-        const updatedReward = await stakingContract.getReward(account);
-
-        setRewardAmount(parseFloat(ethers.formatEther(updatedReward)).toFixed(4));
-
-        await fetchEvents(account);
-
-        alert("Reward Claimed");
-
-    } catch (err) {
-        console.log(err);
-        alert(err.reason || err.message || "Claim Failed");
-    } finally {
-        setClaimLoading(false);
-    }
-};
-
-useEffect(() => {
-    if (window.ethereum) {
-        window.ethereum.on("accountsChanged", () => {
-            window.location.reload();
-        });
-        window.ethereum.on("chainChanged", () => {
-            window.location.reload();
-        });
-    }
-}, []);
-
-const value = {
-    account,
-    amount,
-    setAmount,
-    stakeAmount,
-    rewardAmount,
-    stakeLoading,
-    withdrawLoading,
-    claimLoading,
-    history,
-    connectWallet,
-    handleStake,
-    handleWithdraw,
-    handleClaim
-};
-
-return (
-    <Web3Context.Provider value={value}>
-        {children}
-    </Web3Context.Provider>
-);
+    return (
+        <Web3Context.Provider value={value}>
+            {children}
+        </Web3Context.Provider>
+    );
 }
